@@ -30,11 +30,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    body {
-        background-color: #f6f8fc;
-    }
 
-    /* VM cards */
     .vm-card {
         background: white;
         border-radius: 16px;
@@ -43,7 +39,23 @@ st.markdown(
         box-shadow: 0 10px 28px rgba(0,0,0,0.08);
     }
 
-    /* Floating chatbot */
+    .policy-card {
+        background-color:#f5f8ff;
+        border-left:6px solid #4f6ef7;
+        padding:18px;
+        border-radius:12px;
+        margin-bottom:20px;
+    }
+
+    .demo-banner {
+        background:#e8f5e9;
+        border-left:6px solid #2e7d32;
+        padding:14px;
+        border-radius:10px;
+        margin-bottom:24px;
+        font-size:14px;
+    }
+
     .chatbot-box {
         position: fixed;
         bottom: 24px;
@@ -70,17 +82,49 @@ st.markdown(
 # Header / intro
 # --------------------------------------------------
 st.title("☁️ Cloud Auto-Hibernation Engine")
+
 st.markdown(
     """
-    **Stop cloud cost leakage automatically — safely and explainably.**
+    **Prevent cloud cost leakage using policy-driven governance.**
 
-    This system continuously evaluates cloud VMs using governance policies,
-    identifies idle resources, estimates cost impact, and **automatically stops**
-    them **based on rules** — with optional human approval for safety and demos.
+    This system continuously evaluates virtual machines,
+    identifies **sustained low-utilization resources**, estimates cost impact,
+    and **recommends safe stop actions** using explainable rules.
     """
 )
 
-st.divider()
+# --------------------------------------------------
+# Demo Mode Banner (STEP 2)
+# --------------------------------------------------
+st.markdown(
+    """
+    <div class="demo-banner">
+        🟢 <b>Demo Mode Enabled</b><br>
+        Execution is <b>simulated</b>. Policy decisions, cost analysis, and execution plans are real.
+        Destructive actions are intentionally gated for safety.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# --------------------------------------------------
+# Policy Summary Card (STEP 1)
+# --------------------------------------------------
+st.markdown(
+    """
+    <div class="policy-card">
+        <h4>🛡️ Auto-Stop Governance Policy</h4>
+        A virtual machine is recommended for stopping only when <b>all</b> conditions are met:
+        <ul>
+            <li>CPU utilization remains below <b>5%</b></li>
+            <li>VM has been idle for more than <b>24 hours</b></li>
+            <li>Environment is <b>non-production</b></li>
+            <li>No <code>do-not-stop</code> protection tag is present</li>
+        </ul>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # --------------------------------------------------
 # Load mock VM data
@@ -145,17 +189,17 @@ for vm in vm_results:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("#### 🛡️ Policy Explanation")
+        st.markdown("#### 🛡️ Policy Evaluation")
         st.write(vm["reason"])
         st.write(f"**Decision:** `{vm['decision'].value}`")
 
     with col2:
-        st.markdown("#### 💰 Cost Snapshot")
+        st.markdown("#### 💰 Cost Impact")
         st.write(f"Monthly cost: ₹{vm['monthly_cost']:.0f}")
-        st.write(f"Potential savings: ₹{vm['savings']:.0f}")
+        st.write(f"Preventable waste: ₹{vm['savings']:.0f}")
 
-    # -------- Cost trend graph (3 lines) --------
-    with st.expander("📊 Analyze Cost Impact Over Time"):
+    # -------- Cost trend graph --------
+    with st.expander("📊 Cost Accumulation Over Time"):
         weeks = ["Week 1", "Week 2", "Week 3", "Week 4"]
 
         no_auto = [
@@ -195,14 +239,16 @@ for vm in vm_results:
 
         st.altair_chart(chart, use_container_width=True)
 
-    # -------- Action --------
+    # -------- Action (still gated) --------
     if vm["decision"] == Decision.AUTO_STOP:
-        if st.button("Approve & Stop Resource", key=f"stop-{vm['name']}"):
+        if st.button("Approve & Generate Execution Plan", key=f"stop-{vm['name']}"):
             explanation = (
-                f"This VM was stopped because it was idle and matched the auto-stop policy. "
-                f"Stopping it prevents approximately ₹{vm['savings']:.0f} in monthly cost leakage."
+                f"Execution plan generated.\n\n"
+                f"Reason: {vm['reason']}\n"
+                f"Estimated monthly savings: ₹{vm['savings']:.0f}\n"
+                f"Mode: DRY-RUN (no live resources modified)"
             )
-            with st.spinner("Executing policy-approved action..."):
+            with st.spinner("Validating governance rules..."):
                 executor.execute({
                     "resource_name": vm["name"],
                     "decision": Decision.AUTO_STOP
@@ -212,7 +258,7 @@ for vm in vm_results:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# Floating chatbot (PURE HTML — no layout space)
+# Floating chatbot
 # --------------------------------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
