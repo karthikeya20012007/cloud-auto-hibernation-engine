@@ -18,7 +18,8 @@ class GeminiChatbot:
 
         if GEMINI_AVAILABLE and self.api_key:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel("gemini-pro")
+            self.model = genai.GenerativeModel("models/gemini-1.5-flash")
+
         else:
             self.model = None
 
