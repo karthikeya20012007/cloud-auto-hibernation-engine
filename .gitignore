@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# GCP / secrets
+*.json
+
+# OS / editor noise
+.DS_Store
+.vscode/
