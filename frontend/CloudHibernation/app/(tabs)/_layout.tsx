@@ -1,33 +1,51 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+    <Tabs screenOptions={{ headerShown: false }}>
+      {/* Dashboard */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Dashboard',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="speedometer-outline"
+              color={color}
+              size={size}
+            />
+          ),
         }}
       />
+
+      {/* Assistant */}
       <Tabs.Screen
-        name="explore"
+        name="assistant"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Assistant',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      {/* Cost Estimation */}
+      <Tabs.Screen
+        name="estimation"
+        options={{
+          title: 'Estimation',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name="cash-outline"
+              color={color}
+              size={size}
+            />
+          ),
         }}
       />
     </Tabs>

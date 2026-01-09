@@ -1,136 +1,129 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
+import { fetchResources } from '../../services/api';
+import SummaryHeader from '../../components/SummaryHeader';
+import PolicyBanner from '../../components/PolicyBanner';
+import ResourceCard from '../../components/ResourceCard';
 
-const API_URL = "http://172.16.104.63:8000";
-
-type ApiResponse = {
-  vm_name?: string;
-  machine_type?: string;
-  vcpus?: number;
-  memory_gb?: number;
-  region?: string;
-  hours_per_day?: number;
-  estimated_monthly_cost_inr?: number;
-  note?: string;
-  error?: string;
+type Resource = {
+  id: string;
+  type: string;
+  cpu: number;
+  idle_minutes: number;
+  state: 'running' | 'stopped';
+  policy_status:
+    | 'healthy'
+    | 'warning'
+    | 'approval-required'
+    | 'auto-stopped'
+    | 'stopped';
 };
 
-export default function App() {
-  const [requestBody, setRequestBody] = useState<string>(
-    `{
-  "vm_name": "vm-1",
-  "hours_per_day": 3
-}`
+export default function DashboardScreen() {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [policy, setPolicy] = useState<any>(null);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  function loadResources() {
+    setLoading(true);
+    fetchResources()
+      .then((data) => {
+        setResources(data.resources);
+        setPolicy(data.policy);
+      })
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadResources();
+  }, []);
+
+  if (loading) {
+    return <Text style={{ padding: 16 }}>Loading dashboard...</Text>;
+  }
+
+  const filteredResources = resources.filter((r) =>
+    r.id.toLowerCase().includes(search.toLowerCase())
   );
 
-  const [response, setResponse] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-
-  const executeRequest = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setResponse("");
-
-      const parsedBody = JSON.parse(requestBody);
-
-      const res = await fetch(`${API_URL}/chatbot/estimate-cost`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(parsedBody),
-      });
-
-      const data: ApiResponse = await res.json();
-      setResponse(JSON.stringify(data, null, 2));
-    } catch (err: any) {
-      setResponse("❌ Error:\n" + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Swagger-style API Demo</Text>
+    <ScrollView style={styles.container}>
+      {/* 🔝 Welcome + Search */}
+      <View style={styles.header}>
+        <Text style={styles.welcome}>Welcome back Karthikeya 👋</Text>
+        <Text style={styles.subtitle}>
+          Monitor and control your compute resources
+        </Text>
 
-      <Text style={styles.label}>POST /chatbot/estimate-cost</Text>
+        <TextInput
+          mode="outlined"
+          placeholder="Search VM by name or tag..."
+          value={search}
+          onChangeText={setSearch}
+          style={styles.search}
+        />
+      </View>
 
-      <Text style={styles.subLabel}>Request Body (JSON)</Text>
-      <TextInput
-        style={styles.codeBox}
-        multiline
-        value={requestBody}
-        onChangeText={setRequestBody}
-        textAlignVertical="top"
-        placeholder='{
-  "vm_name": "vm-1",
-  "hours_per_day": 3
-}'
-        placeholderTextColor="#888"
+      {/* 📊 Summary */}
+      <SummaryHeader
+        total={resources.length}
+        warnings={resources.filter(r => r.policy_status === 'warning').length}
+        stopped={resources.filter(r => r.policy_status === 'auto-stopped').length}
       />
 
-      <Button
-        title={loading ? "Executing..." : "Execute"}
-        onPress={executeRequest}
-      />
+      {/* 📜 Policy */}
+      {policy && <PolicyBanner policy={policy} />}
 
-      <Text style={styles.subLabel}>Response</Text>
-      <TextInput
-        style={[styles.codeBox, styles.responseBox]}
-        multiline
-        editable={false}
-        value={response}
-        placeholder="Response will appear here"
-        placeholderTextColor="#888"
-      />
+      {/* 🖥️ Resources */}
+      {filteredResources.length === 0 ? (
+        <Text style={styles.empty}>No matching resources found.</Text>
+      ) : (
+        filteredResources.map((r) => (
+          <ResourceCard
+            key={r.id}
+            r={r}
+            onStopped={(id) => {
+              setResources(prev =>
+                prev.map(vm =>
+                  vm.id === id
+                    ? { ...vm, state: 'stopped', policy_status: 'stopped' }
+                    : vm
+                )
+              );
+            }}
+          />
+        ))
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    paddingBottom: 40,
-    backgroundColor: "#fff",
+    padding: 12,
+    backgroundColor: '#f8fafc',
   },
-  title: {
+  header: {
+    marginBottom: 16,
+  },
+  welcome: {
     fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#000",
+    fontWeight: '700',
+    color: '#0f172a',
   },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
-    color: "#000",
-  },
-  subLabel: {
-    marginTop: 15,
-    marginBottom: 5,
-    fontWeight: "600",
-    color: "#000",
-  },
-  codeBox: {
-    borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 6,
-    padding: 10,
-    minHeight: 140,
-    color: "#000",          // 🔑 makes typed text visible
-    backgroundColor: "#f9f9f9",
+  subtitle: {
     fontSize: 14,
-    marginBottom: 10,
+    color: '#475569',
+    marginBottom: 12,
   },
-  responseBox: {
-    minHeight: 180,
+  search: {
+    backgroundColor: '#ffffff',
+  },
+  empty: {
+    marginTop: 24,
+    textAlign: 'center',
+    color: '#475569',
   },
 });
