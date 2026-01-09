@@ -11,24 +11,33 @@ type Resource = {
   cpu: number;
   idle_minutes: number;
   state: string;
-  policy_status: 'healthy' | 'warning' | 'auto-stopped';
+  policy_status:
+  | 'healthy'
+  | 'warning'
+  | 'auto-stopped'
+  | 'approval-required';
 };
 
 export default function ExploreScreen() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    fetchResources()
-      .then((data) => setResources(data.resources))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
 
-  useEffect(() => {
+  // 🔁 SINGLE source of truth for fetching
+  function loadResources(silent = false) {
+    if (!silent) setLoading(true);
+
     fetchResources()
       .then((data) => setResources(data.resources))
-      .finally(() => setLoading(false));
+      .catch(console.error)
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
+  }
+
+  // Initial load ONLY ONCE
+  useEffect(() => {
+    loadResources();
   }, []);
 
   if (loading) {
@@ -55,7 +64,11 @@ export default function ExploreScreen() {
         <Text style={styles.empty}>No matching resources found.</Text>
       ) : (
         filteredResources.map((r) => (
-          <ResourceCard key={r.id} r={r} />
+          <ResourceCard
+            key={r.id}
+            r={r}
+            onStopped={loadResources} // ✅ THIS IS CRITICAL
+          />
         ))
       )}
     </ScrollView>

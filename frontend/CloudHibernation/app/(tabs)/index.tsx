@@ -18,6 +18,18 @@ export default function DashboardScreen() {
   const [policy, setPolicy] = useState<any>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
 
+  function loadResources() {
+    setLoading(true);
+    fetchResources()
+      .then((data) => {
+        setResources(data.resources);
+        setPolicy(data.policy);
+      })
+      .finally(() => setLoading(false));
+  }
+  useEffect(() => {
+    loadResources();
+  }, []);
 
   const navigation = useNavigation();
   useEffect(() => {
@@ -44,6 +56,7 @@ export default function DashboardScreen() {
         />
       ),
     });
+
   }, [navigation]);
 
 
@@ -64,8 +77,13 @@ export default function DashboardScreen() {
         />
 
         {resources.map((r) => (
-          <ResourceCard key={r.id} r={r} />
+          <ResourceCard
+            key={r.id}
+            r={r}
+            onStopped={loadResources}
+          />
         ))}
+
       </ScrollView>
 
       {/* Chatbot + Floating Button */}

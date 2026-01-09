@@ -1,48 +1,40 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
-from fastapi import HTTPException
 
+# -------------------------------------------------
+# APP INITIALIZATION
+# -------------------------------------------------
 app = FastAPI(title="Cloud Auto-Hibernation Engine API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # dev only
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# -------------------------------------------------
+# ROOT ENDPOINT
+# -------------------------------------------------
 @app.get("/")
 def root():
     return {"status": "API running"}
 
-@app.post("/resources/{resource_id}/approve-stop")
-def approve_stop(resource_id: str):
-    for r in COMPUTE_RESOURCES:
-        if r["id"] == resource_id:
-            r["state"] = "stopped"
-            return {
-                "message": "VM stopped after user approval",
-                "id": r["id"],
-                "state": r["state"]
-            }
-
-    raise HTTPException(status_code=404, detail="Resource not found")
-
-# --------------------------------
+# -------------------------------------------------
 # USER-DEFINED POLICY (MOCK)
-# --------------------------------
+# -------------------------------------------------
 POLICY = {
     "idle_warn_minutes": 45,
     "idle_stop_minutes": 60,
     "cpu_idle_threshold": 10,
-    "require_approval_for": ["prod-critical", "finance"],  # tags
+    "require_approval_for": ["prod-critical", "finance"],
 }
 
-# --------------------------------
-# COMPUTE RESOURCES (REALISTIC)
-# --------------------------------
+# -------------------------------------------------
+# COMPUTE RESOURCES (STATEFUL MOCK DB)
+# -------------------------------------------------
 COMPUTE_RESOURCES = [
     {
         "id": "prod-eu-west1-api-gateway-vm-01",
@@ -51,6 +43,7 @@ COMPUTE_RESOURCES = [
         "idle_minutes": 52,
         "state": "running",
         "tags": ["prod-critical"],
+        "approved": False,
     },
     {
         "id": "staging-us-central1-ml-inference-vm-02",
@@ -59,14 +52,16 @@ COMPUTE_RESOURCES = [
         "idle_minutes": 61,
         "state": "running",
         "tags": ["staging"],
+        "approved": False,
     },
     {
         "id": "finance-apac-payroll-batch-vm-09",
         "type": "compute-vm",
         "cpu": 2,
-        "idle_minutes": 78,  # crossed threshold
+        "idle_minutes": 78,
         "state": "running",
-        "tags": ["finance"],  # requires approval
+        "tags": ["finance"],
+        "approved": False,  # 🔑 requires approval
     },
     {
         "id": "gke-nodepool-video-transcoder-node-a3f",
@@ -75,12 +70,13 @@ COMPUTE_RESOURCES = [
         "idle_minutes": 12,
         "state": "running",
         "tags": ["prod"],
+        "approved": False,
     },
 ]
 
-# --------------------------------
-# POLICY EVALUATION
-# --------------------------------
+# -------------------------------------------------
+# POLICY HELPERS
+# -------------------------------------------------
 def requires_approval(resource):
     return any(
         tag in POLICY["require_approval_for"]
@@ -88,24 +84,29 @@ def requires_approval(resource):
     )
 
 def evaluate_resource(resource):
+    # Healthy if CPU usage is high
     if resource["cpu"] > POLICY["cpu_idle_threshold"]:
         return "healthy"
 
+    # Idle stop logic
     if resource["idle_minutes"] >= POLICY["idle_stop_minutes"]:
-        if requires_approval(resource):
+        # Approval gate
+        if requires_approval(resource) and not resource.get("approved", False):
             return "approval-required"
 
+        # Either approved OR no approval required
         resource["state"] = "stopped"
         return "auto-stopped"
 
+    # Warning zone
     if resource["idle_minutes"] >= POLICY["idle_warn_minutes"]:
         return "warning"
 
     return "healthy"
 
-# --------------------------------
-# API ENDPOINT
-# --------------------------------
+# -------------------------------------------------
+# API: LIST RESOURCES
+# -------------------------------------------------
 @app.get("/resources")
 def list_resources():
     response = []
@@ -121,6 +122,7 @@ def list_resources():
             "state": r["state"],
             "policy_status": status,
             "tags": r["tags"],
+            "approved": r["approved"],
         })
 
     return {
@@ -128,3 +130,21 @@ def list_resources():
         "timestamp": datetime.utcnow().isoformat(),
         "resources": response,
     }
+
+# -------------------------------------------------
+# API: APPROVE & STOP RESOURCE
+# -------------------------------------------------
+@app.post("/resources/{resource_id}/approve-stop")
+def approve_stop(resource_id: str):
+    for r in COMPUTE_RESOURCES:
+        if r["id"] == resource_id:
+            r["approved"] = True
+            r["state"] = "stopped"
+            return {
+                "message": "VM stopped after user approval",
+                "id": r["id"],
+                "state": r["state"],
+                "approved": r["approved"],
+            }
+
+    raise HTTPException(status_code=404, detail="Resource not found")

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Chip } from 'react-native-paper';
+import { Card, Text, Chip, Button } from 'react-native-paper';
+import { approveStop } from '../services/api';
 
 type Resource = {
     id: string;
@@ -14,7 +16,27 @@ type Resource = {
     | 'approval-required';
 };
 
-export default function ResourceCard({ r }: { r: Resource }) {
+export default function ResourceCard({
+    r,
+    onStopped,
+}: {
+    r: Resource;
+    onStopped: (silent?: boolean) => void;
+}) {
+    const [stopping, setStopping] = useState(false);
+
+    async function handleStopNow() {
+        try {
+            setStopping(true);
+            await approveStop(r.id);
+            onStopped(true); // 🔥 silent refresh
+        } catch (e) {
+            alert('Failed to stop VM');
+        } finally {
+            setStopping(false);
+        }
+    }
+
     return (
         <Card style={styles.card}>
             <Card.Content>
@@ -36,16 +58,21 @@ export default function ResourceCard({ r }: { r: Resource }) {
                 <Text style={styles.meta}>Idle Time: {r.idle_minutes} min</Text>
                 <Text style={styles.meta}>State: {r.state}</Text>
 
-                {/* Policy explanation */}
+                {/* Policy explanation + action */}
                 <View style={styles.policyBox}>
-                    <Text style={styles.policyText}>
-                        {policyMessage(r)}
-                    </Text>
+                    <Text style={styles.policyText}>{policyMessage(r)}</Text>
 
                     {r.policy_status === 'approval-required' && (
-                        <Text style={styles.approvalHint}>
-                            Awaiting user approval
-                        </Text>
+                        <Button
+                            mode="contained"
+                            onPress={handleStopNow}
+                            loading={stopping}
+                            disabled={stopping}
+                            style={{ marginTop: 8 }}
+                            buttonColor="#dc2626"
+                        >
+                            Stop VM
+                        </Button>
                     )}
                 </View>
             </Card.Content>
@@ -110,7 +137,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fee2e2',
     },
     approval: {
-        backgroundColor: '#fde68a', // amber
+        backgroundColor: '#fde68a',
     },
     policyBox: {
         marginTop: 8,
@@ -122,11 +149,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#0f172a',
         fontWeight: '500',
-    },
-    approvalHint: {
-        marginTop: 4,
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#92400e',
     },
 });

@@ -1,29 +1,36 @@
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+/**
+ * Stable backend URL for Expo Go on physical device
+ * Change ONLY if your LAN IP changes
+ */
+const BASE_URL = 'http://192.168.1.9:8000';
 
-function getBaseUrl() {
-    // Android Emulator
-    if (Platform.OS === 'android' && !Constants.isDevice) {
-        return 'http://10.0.2.2:8000';
+/**
+ * Fetch all compute resources
+ */
+export async function fetchResources() {
+    const res = await fetch(`${BASE_URL}/resources`);
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch resources');
     }
 
-    // Physical phone (Expo Go)
-    const hostUri = Constants.expoConfig?.hostUri;
-    if (hostUri) {
-        const host = hostUri.split(':').shift();
-        return `http://${host}:8000`;
-    }
-
-    // Web fallback
-    return 'http://localhost:8000';
+    return res.json();
 }
 
-const BASE_URL = getBaseUrl();
+/**
+ * Approve and stop a VM that requires human approval
+ */
+export async function approveStop(resourceId: string) {
+    const res = await fetch(
+        `${BASE_URL}/resources/${resourceId}/approve-stop`,
+        {
+            method: 'POST',
+        }
+    );
 
-export async function fetchResources() {
-    const res = await fetch('http://192.168.1.9:8000/resources');
     if (!res.ok) {
-        throw new Error('Network error');
+        throw new Error('Failed to approve stop');
     }
+
     return res.json();
 }
