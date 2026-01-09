@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Card, Text, Chip, Button } from 'react-native-paper';
-import { useRouter } from 'expo-router';
 import { approveStop } from '../services/api';
 
 type Resource = {
@@ -15,7 +14,7 @@ type Resource = {
     | 'warning'
     | 'approval-required'
     | 'auto-stopped'
-    | 'stopped';
+    | 'never-stop';
 };
 
 export default function ResourceCard({
@@ -25,7 +24,6 @@ export default function ResourceCard({
     r: Resource;
     onStopped: (id: string) => void;
 }) {
-    const router = useRouter();
     const [stopping, setStopping] = useState(false);
 
     async function handleStopNow() {
@@ -34,66 +32,74 @@ export default function ResourceCard({
         try {
             setStopping(true);
             await approveStop(r.id);
-            onStopped(r.id); // update dashboard instantly
-        } catch {
-            alert('Failed to stop VM');
+            onStopped(r.id); // update parent state
+        } catch (err: any) {
+            alert(err?.message || 'Failed to stop VM');
         } finally {
             setStopping(false);
         }
     }
 
     return (
-        <Pressable
-            onPress={() => router.push(`/vm/${r.id}`)}
-            style={{ marginBottom: 14 }}
-        >
-            <Card style={styles.card}>
-                <Card.Content>
-                    {/* HEADER */}
-                    <View style={styles.header}>
-                        <Text style={styles.name}>{r.id}</Text>
-                        <Chip style={statusStyle(r.policy_status)}>
-                            {r.policy_status.toUpperCase()}
-                        </Chip>
-                    </View>
+        <Card style={styles.card}>
+            <Card.Content>
+                {/* HEADER */}
+                <View style={styles.header}>
+                    <Text style={styles.name}>{r.id}</Text>
 
-                    {/* METRICS */}
-                    <Text style={styles.meta}>Type: {r.type}</Text>
-                    <Text style={styles.meta}>CPU Usage: {r.cpu}%</Text>
-                    <Text style={styles.meta}>Idle Time: {r.idle_minutes} min</Text>
-                    <Text style={styles.meta}>State: {r.state}</Text>
+                    <Chip style={statusStyle(r.policy_status)}>
+                        {r.policy_status.toUpperCase()}
+                    </Chip>
+                </View>
 
-                    {/* ACTION — STOP VM */}
-                    {r.policy_status === 'approval-required' && (
-                        <Button
-                            mode="contained"
-                            onPress={(e) => {
-                                e.stopPropagation(); // 🔥 prevents card navigation
-                                handleStopNow();
-                            }}
-                            loading={stopping}
-                            disabled={stopping}
-                            buttonColor="#dc2626"
-                            style={{ marginTop: 8 }}
-                        >
-                            Stop VM
-                        </Button>
-                    )}
-                </Card.Content>
-            </Card>
-        </Pressable>
+                {/* METRICS */}
+                <Text style={styles.meta}>Type: {r.type}</Text>
+                <Text style={styles.meta}>CPU Usage: {r.cpu}%</Text>
+                <Text style={styles.meta}>Idle Time: {r.idle_minutes} min</Text>
+                <Text style={styles.meta}>State: {r.state}</Text>
+
+                {/* 🚨 STOP BUTTON — ONLY FOR APPROVAL REQUIRED */}
+                {r.policy_status === 'approval-required' && (
+                    <Button
+                        mode="contained"
+                        onPress={handleStopNow}
+                        loading={stopping}
+                        disabled={stopping}
+                        buttonColor="#dc2626"
+                        style={styles.stopButton}
+                    >
+                        Approve & Stop VM
+                    </Button>
+                )}
+            </Card.Content>
+        </Card>
     );
 }
 
-function statusStyle(status: string) {
-    if (status === 'approval-required') return styles.approval;
-    if (status === 'auto-stopped' || status === 'stopped') return styles.stopped;
-    if (status === 'warning') return styles.warning;
-    return styles.healthy;
+/* ------------------ HELPERS ------------------ */
+
+function statusStyle(status: Resource['policy_status']) {
+    switch (status) {
+        case 'healthy':
+            return styles.healthy;
+        case 'warning':
+            return styles.warning;
+        case 'auto-stopped':
+            return styles.stopped;
+        case 'approval-required':
+            return styles.approval;
+        case 'never-stop':
+            return styles.neverStop;
+        default:
+            return styles.healthy;
+    }
 }
+
+/* ------------------ STYLES ------------------ */
 
 const styles = StyleSheet.create({
     card: {
+        marginBottom: 14,
         backgroundColor: '#ffffff',
         borderRadius: 12,
     },
@@ -106,14 +112,19 @@ const styles = StyleSheet.create({
         flex: 1,
         marginRight: 8,
         fontWeight: '600',
-        color: '#0f172a',
+        color: '#000000',
     },
     meta: {
-        color: '#111827',
+        color: '#000000',
         fontSize: 13,
         marginBottom: 2,
         fontWeight: '500',
     },
+    stopButton: {
+        marginTop: 10,
+    },
+
+    /* CHIP COLORS */
     healthy: {
         backgroundColor: '#dcfce7',
     },
@@ -125,5 +136,8 @@ const styles = StyleSheet.create({
     },
     approval: {
         backgroundColor: '#fde68a',
+    },
+    neverStop: {
+        backgroundColor: '#e0e7ff',
     },
 });

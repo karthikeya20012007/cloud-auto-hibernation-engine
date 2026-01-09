@@ -2,13 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 
-from ai.chatbot_logic import chatbot_estimate_cost
-
 app = FastAPI(title="Cloud Auto-Hibernation Engine API")
 
-# -------------------------------------------------
-# CORS (Frontend / Expo / Web)
-# -------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,93 +12,95 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------------------------
-# HEALTH CHECK
-# -------------------------------------------------
 @app.get("/")
 def root():
     return {"status": "API running"}
 
-# -------------------------------------------------
-# CHATBOT COST ESTIMATION
-# -------------------------------------------------
-@app.post("/chatbot/estimate-cost")
-def estimate_vm_cost(payload: dict):
-    """
-    Expected input:
-    {
-        "vm_name": "vm-1",
-        "hours_per_day": 3
-    }
-    """
-    if "vm_name" not in payload or "hours_per_day" not in payload:
-        raise HTTPException(status_code=400, detail="Invalid request payload")
-
-    return chatbot_estimate_cost(
-        payload["vm_name"],
-        payload["hours_per_day"]
-    )
-
-# -------------------------------------------------
+# --------------------------------
 # POLICY
-# -------------------------------------------------
+# --------------------------------
 POLICY = {
     "idle_warn_minutes": 45,
     "idle_stop_minutes": 60,
     "cpu_idle_threshold": 10,
-    "require_approval_for": ["finance", "prod-critical"],
+    "require_approval_for": ["finance"],
+    "never_stop_tags": ["never-stop"],
 }
 
-# -------------------------------------------------
-# COMPUTE RESOURCES (MOCK DATA)
-# -------------------------------------------------
+# --------------------------------
+# COMPUTE RESOURCES (5 STATES)
+# --------------------------------
 COMPUTE_RESOURCES = [
+    # 🟢 HEALTHY
     {
-        "id": "prod-eu-west1-api-gateway-vm-01",
+        "id": "prod-api-gateway-vm-01",
         "type": "compute-vm",
         "instance_type": "n2-standard-4",
-        "cpu": 6,
-        "idle_minutes": 52,
+        "cpu": 40,
+        "idle_minutes": 10,
         "state": "running",
-        "tags": ["prod-critical"],
+        "tags": ["prod"],
         "cost": {"gcp": 140, "aws": 165, "azure": 158},
     },
+
+    # ⚠️ WARNING
     {
-        "id": "staging-us-central1-ml-inference-vm-02",
+        "id": "staging-ml-inference-vm-02",
         "type": "compute-vm",
         "instance_type": "g4dn.xlarge",
-        "cpu": 3,
-        "idle_minutes": 61,
-        "state": "stopped",
+        "cpu": 5,
+        "idle_minutes": 50,
+        "state": "running",
         "tags": ["staging"],
         "cost": {"gcp": 210, "aws": 260, "azure": 245},
     },
+
+    # ⛔ AUTO-STOPPED
     {
-        # 🔥 Approval-required VM
-        "id": "finance-apac-payroll-batch-vm-09",
+        "id": "batch-reporting-worker-vm-07",
         "type": "compute-vm",
         "instance_type": "e2-standard-2",
         "cpu": 2,
-        "idle_minutes": 78,
-        "state": "running",
-        "tags": ["finance"],
+        "idle_minutes": 90,
+        "state": "stopped",
+        "tags": ["batch"],
         "cost": {"gcp": 92, "aws": 108, "azure": 101},
     },
+
+    # ✋ APPROVAL REQUIRED
     {
-        "id": "gke-nodepool-video-transcoder-node-a3f",
-        "type": "k8s-node",
+        "id": "finance-payroll-vm-09",
+        "type": "compute-vm",
         "instance_type": "c2-standard-8",
-        "cpu": 18,
-        "idle_minutes": 12,
+        "cpu": 3,
+        "idle_minutes": 85,
         "state": "running",
-        "tags": ["prod"],
+        "tags": ["finance"],
         "cost": {"gcp": 310, "aws": 355, "azure": 342},
+    },
+
+    # 🔒 NEVER STOP
+    {
+        "id": "auth-identity-core-vm-99",
+        "type": "compute-vm",
+        "instance_type": "c2-standard-16",
+        "cpu": 2,
+        "idle_minutes": 120,
+        "state": "running",
+        "tags": ["never-stop", "core"],
+        "cost": {"gcp": 520, "aws": 610, "azure": 590},
     },
 ]
 
-# -------------------------------------------------
+# --------------------------------
 # POLICY LOGIC
-# -------------------------------------------------
+# --------------------------------
+def has_never_stop(resource):
+    return any(
+        tag in POLICY["never_stop_tags"]
+        for tag in resource.get("tags", [])
+    )
+
 def requires_approval(resource):
     return any(
         tag in POLICY["require_approval_for"]
@@ -111,31 +108,30 @@ def requires_approval(resource):
     )
 
 def evaluate_resource(resource):
-    # Terminal state
-    if resource["state"] == "stopped":
-        return "stopped"
+    # 🔒 NEVER STOP OVERRIDES EVERYTHING
+    if has_never_stop(resource):
+        return "never-stop"
 
-    # Healthy
+    if resource["state"] == "stopped":
+        return "auto-stopped"
+
     if resource["cpu"] > POLICY["cpu_idle_threshold"]:
         return "healthy"
 
-    # Stop zone
     if resource["idle_minutes"] >= POLICY["idle_stop_minutes"]:
         if requires_approval(resource):
             return "approval-required"
-
         resource["state"] = "stopped"
         return "auto-stopped"
 
-    # Warning zone
     if resource["idle_minutes"] >= POLICY["idle_warn_minutes"]:
         return "warning"
 
     return "healthy"
 
-# -------------------------------------------------
+# --------------------------------
 # LIST RESOURCES
-# -------------------------------------------------
+# --------------------------------
 @app.get("/resources")
 def list_resources():
     response = []
@@ -161,13 +157,19 @@ def list_resources():
         "resources": response,
     }
 
-# -------------------------------------------------
-# APPROVE & STOP VM
-# -------------------------------------------------
+# --------------------------------
+# APPROVE & STOP
+# --------------------------------
 @app.post("/resources/{resource_id}/approve-stop")
 def approve_stop(resource_id: str):
     for r in COMPUTE_RESOURCES:
         if r["id"] == resource_id:
+            if has_never_stop(r):
+                raise HTTPException(
+                    status_code=403,
+                    detail="This VM has a never-stop policy"
+                )
+
             r["state"] = "stopped"
             return {
                 "message": "VM stopped after user approval",
@@ -176,4 +178,3 @@ def approve_stop(resource_id: str):
             }
 
     raise HTTPException(status_code=404, detail="Resource not found")
-
