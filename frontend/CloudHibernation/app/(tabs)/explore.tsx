@@ -18,6 +18,12 @@ export default function ExploreScreen() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetchResources()
+      .then((data) => setResources(data.resources))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     fetchResources()

@@ -20,6 +20,12 @@ export default function DashboardScreen() {
 
 
   const navigation = useNavigation();
+  useEffect(() => {
+    fetchResources()
+      .then((data) => setResources(data.resources))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     fetchResources()

@@ -7,7 +7,11 @@ type Resource = {
     cpu: number;
     idle_minutes: number;
     state: string;
-    policy_status: 'healthy' | 'warning' | 'auto-stopped';
+    policy_status:
+    | 'healthy'
+    | 'warning'
+    | 'auto-stopped'
+    | 'approval-required';
 };
 
 export default function ResourceCard({ r }: { r: Resource }) {
@@ -37,6 +41,12 @@ export default function ResourceCard({ r }: { r: Resource }) {
                     <Text style={styles.policyText}>
                         {policyMessage(r)}
                     </Text>
+
+                    {r.policy_status === 'approval-required' && (
+                        <Text style={styles.approvalHint}>
+                            Awaiting user approval
+                        </Text>
+                    )}
                 </View>
             </Card.Content>
         </Card>
@@ -45,7 +55,10 @@ export default function ResourceCard({ r }: { r: Resource }) {
 
 function policyMessage(r: Resource) {
     if (r.policy_status === 'auto-stopped') {
-        return 'Auto-stopped due to prolonged idle usage as per policy.';
+        return 'Auto-stopped after exceeding idle threshold as per policy.';
+    }
+    if (r.policy_status === 'approval-required') {
+        return 'Idle threshold exceeded. Manual approval required before stopping.';
     }
     if (r.policy_status === 'warning') {
         return 'Approaching auto-stop threshold based on idle policy.';
@@ -53,8 +66,9 @@ function policyMessage(r: Resource) {
     return 'Resource operating within defined policy limits.';
 }
 
-function statusStyle(status: string) {
+function statusStyle(status: Resource['policy_status']) {
     if (status === 'auto-stopped') return styles.stopped;
+    if (status === 'approval-required') return styles.approval;
     if (status === 'warning') return styles.warning;
     return styles.healthy;
 }
@@ -95,6 +109,9 @@ const styles = StyleSheet.create({
     stopped: {
         backgroundColor: '#fee2e2',
     },
+    approval: {
+        backgroundColor: '#fde68a', // amber
+    },
     policyBox: {
         marginTop: 8,
         padding: 8,
@@ -105,5 +122,11 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#0f172a',
         fontWeight: '500',
+    },
+    approvalHint: {
+        marginTop: 4,
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#92400e',
     },
 });
