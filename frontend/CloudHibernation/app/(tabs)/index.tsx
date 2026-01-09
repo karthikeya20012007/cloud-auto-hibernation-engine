@@ -12,13 +12,15 @@ type Resource = {
   type: string;
   cpu: number;
   idle_minutes: number;
-  state: string;
+  state: 'running' | 'stopped';
   policy_status:
   | 'healthy'
   | 'warning'
+  | 'approval-required'
   | 'auto-stopped'
-  | 'approval-required';
+  | 'stopped';
 };
+
 
 export default function DashboardScreen() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -56,7 +58,7 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container}>
       {/* 🔝 Welcome + Search */}
       <View style={styles.header}>
-        <Text style={styles.welcome}>Welcome back 👋</Text>
+        <Text style={styles.welcome}>Welcome back Karthikeya👋</Text>
         <Text style={styles.subtitle}>
           Monitor and control your compute resources
         </Text>
@@ -88,8 +90,17 @@ export default function DashboardScreen() {
           <ResourceCard
             key={r.id}
             r={r}
-            onStopped={loadResources}
+            onStopped={(id) => {
+              setResources(prev =>
+                prev.map(vm =>
+                  vm.id === id
+                    ? { ...vm, state: 'stopped', policy_status: 'stopped' }
+                    : vm
+                )
+              );
+            }}
           />
+
         ))
       )}
     </ScrollView>
