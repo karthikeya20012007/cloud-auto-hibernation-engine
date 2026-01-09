@@ -90,11 +90,13 @@ def evaluate_resource(resource):
 
     # Idle stop logic
     if resource["idle_minutes"] >= POLICY["idle_stop_minutes"]:
-        # Approval gate
-        if requires_approval(resource) and not resource.get("approved", False):
+        # 🔒 Approval-based resources NEVER auto-stop
+        if requires_approval(resource):
+            if resource["state"] == "stopped":
+                return "stopped"
             return "approval-required"
 
-        # Either approved OR no approval required
+        # Non-approval resources auto-stop
         resource["state"] = "stopped"
         return "auto-stopped"
 
@@ -103,6 +105,7 @@ def evaluate_resource(resource):
         return "warning"
 
     return "healthy"
+
 
 # -------------------------------------------------
 # API: LIST RESOURCES
@@ -138,13 +141,11 @@ def list_resources():
 def approve_stop(resource_id: str):
     for r in COMPUTE_RESOURCES:
         if r["id"] == resource_id:
-            r["approved"] = True
             r["state"] = "stopped"
             return {
                 "message": "VM stopped after user approval",
                 "id": r["id"],
                 "state": r["state"],
-                "approved": r["approved"],
             }
 
     raise HTTPException(status_code=404, detail="Resource not found")

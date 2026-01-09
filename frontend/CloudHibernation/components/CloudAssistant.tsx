@@ -1,124 +1,122 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Card, Text, TextInput, Button } from 'react-native-paper';
+import { useEffect, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Text, TextInput, Button, Card } from 'react-native-paper';
 
-type Message = {
-    role: 'user' | 'assistant';
-    text: string;
-};
+import { fetchResources } from '../services/api';
 
-export default function CloudAssistant({
-    policy,
-    resources,
-}: {
-    policy: any;
-    resources: any[];
-}) {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            role: 'assistant',
-            text:
-                'I am your Cloud Operations Assistant. I can help explain policy actions, stopped resources, and optimization recommendations.',
-        },
-    ]);
-    const [input, setInput] = useState('');
+export default function CloudAssistant() {
+    const [query, setQuery] = useState('');
+    const [resources, setResources] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [response, setResponse] = useState<string | null>(null);
 
-    function sendMessage() {
-        if (!input.trim()) return;
+    useEffect(() => {
+        fetchResources()
+            .then((data) => setResources(data.resources))
+            .finally(() => setLoading(false));
+    }, []);
 
-        const userMsg: Message = { role: 'user', text: input };
-        const reply: Message = {
-            role: 'assistant',
-            text: generateReply(input),
-        };
+    function handleAsk() {
+        if (!query.trim()) return;
 
-        setMessages((prev) => [...prev, userMsg, reply]);
-        setInput('');
+        // 🔮 Simple rule-based assistant (MVP)
+        if (query.toLowerCase().includes('warning')) {
+            const count = resources.filter(
+                r => r.policy_status === 'warning'
+            ).length;
+
+            setResponse(
+                count === 0
+                    ? 'All resources are operating normally.'
+                    : `${count} resource(s) are approaching auto-stop thresholds.`
+            );
+            return;
+        }
+
+        if (query.toLowerCase().includes('stopped')) {
+            const stopped = resources.filter(
+                r => r.state === 'stopped'
+            ).length;
+
+            setResponse(
+                `${stopped} resource(s) are currently stopped.`
+            );
+            return;
+        }
+
+        setResponse(
+            'I can help you with warnings, stopped VMs, policies, and cost estimates.'
+        );
     }
 
-    function generateReply(text: string) {
-        const stopped = resources.filter(r => r.policy_status === 'auto-stopped');
-
-        if (text.toLowerCase().includes('why')) {
-            return `Resources are auto-stopped when idle time exceeds ${policy.idle_stop_minutes} minutes with CPU below ${policy.cpu_idle_threshold}%.`;
-        }
-
-        if (text.toLowerCase().includes('stopped')) {
-            if (stopped.length === 0) return 'No resources are currently auto-stopped.';
-            return `Currently auto-stopped resources:\n• ${stopped.map(r => r.id).join('\n• ')}`;
-        }
-
-        if (text.toLowerCase().includes('policy')) {
-            return `Active policy:\n• Warn at ${policy.idle_warn_minutes} min idle\n• Stop at ${policy.idle_stop_minutes} min idle\n• CPU idle threshold ${policy.cpu_idle_threshold}%`;
-        }
-
-        return 'I can help explain policy decisions, stopped resources, or optimization recommendations.';
+    if (loading) {
+        return <Text>Loading assistant...</Text>;
     }
 
     return (
         <View style={styles.container}>
-            <ScrollView>
-                {messages.map((m, i) => (
-                    <Card
-                        key={i}
-                        style={[
-                            styles.message,
-                            m.role === 'assistant' ? styles.assistant : styles.user,
-                        ]}
-                    >
-                        <Card.Content>
-                            <Text style={styles.text}>{m.text}</Text>
-                        </Card.Content>
-                    </Card>
-                ))}
-            </ScrollView>
+            <Card style={styles.card}>
+                <Card.Content>
+                    <Text style={styles.prompt}>
+                        Ask about your cloud resources
+                    </Text>
 
-            <View style={styles.inputRow}>
-                <TextInput
-                    mode="outlined"
-                    value={input}
-                    onChangeText={setInput}
-                    placeholder="Ask about policies, stopped resources..."
-                    style={styles.input}
-                />
-                <Button mode="contained" onPress={sendMessage}>
-                    Send
-                </Button>
-            </View>
+                    <TextInput
+                        mode="outlined"
+                        placeholder="e.g. Which VMs are in warning?"
+                        value={query}
+                        onChangeText={setQuery}
+                        style={styles.input}
+                    />
+
+                    <Button
+                        mode="contained"
+                        onPress={handleAsk}
+                        style={styles.button}
+                    >
+                        Ask
+                    </Button>
+
+                    {response && (
+                        <View style={styles.responseBox}>
+                            <Text style={styles.responseText}>{response}</Text>
+                        </View>
+                    )}
+                </Card.Content>
+            </Card>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#f6f8fc',
+        marginTop: 8,
     },
-    message: {
-        margin: 8,
-        maxWidth: '85%',
-    },
-    assistant: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#e8f0fe',
-    },
-    user: {
-        alignSelf: 'flex-end',
+    card: {
         backgroundColor: '#ffffff',
+        borderRadius: 12,
     },
-    text: {
-        color: '#202124',
+    prompt: {
         fontSize: 14,
-    },
-    inputRow: {
-        flexDirection: 'row',
-        padding: 8,
-        backgroundColor: '#ffffff',
-        borderTopWidth: 1,
-        borderColor: '#dadce0',
+        fontWeight: '600',
+        marginBottom: 8,
+        color: '#0f172a',
     },
     input: {
-        flex: 1,
-        marginRight: 8,
+        marginBottom: 8,
+        backgroundColor: '#ffffff',
+    },
+    button: {
+        marginBottom: 8,
+    },
+    responseBox: {
+        marginTop: 8,
+        padding: 8,
+        backgroundColor: '#f1f5f9',
+        borderRadius: 8,
+    },
+    responseText: {
+        fontSize: 13,
+        color: '#0f172a',
     },
 });

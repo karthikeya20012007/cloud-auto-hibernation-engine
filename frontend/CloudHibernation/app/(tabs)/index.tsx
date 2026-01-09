@@ -1,95 +1,99 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import CloudAssistant from '../../components/CloudAssistant';
-import { IconButton, Modal, Portal } from 'react-native-paper';
-import { useNavigation } from 'expo-router';
-import PolicyBanner from '../../components/PolicyBanner';
-
-
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
 
 import { fetchResources } from '../../services/api';
 import SummaryHeader from '../../components/SummaryHeader';
+import PolicyBanner from '../../components/PolicyBanner';
 import ResourceCard from '../../components/ResourceCard';
 
-export default function DashboardScreen() {
-  const [resources, setResources] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [policy, setPolicy] = useState<any>(null);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+type Resource = {
+  id: string;
+  type: string;
+  cpu: number;
+  idle_minutes: number;
+  state: string;
+  policy_status:
+  | 'healthy'
+  | 'warning'
+  | 'auto-stopped'
+  | 'approval-required';
+};
 
-  function loadResources() {
-    setLoading(true);
+export default function DashboardScreen() {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [policy, setPolicy] = useState<any>(null);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  function loadResources(silent = false) {
+    if (!silent) setLoading(true);
+
     fetchResources()
       .then((data) => {
         setResources(data.resources);
         setPolicy(data.policy);
       })
-      .finally(() => setLoading(false));
+      .catch(console.error)
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
   }
+
   useEffect(() => {
     loadResources();
   }, []);
 
-  const navigation = useNavigation();
-  useEffect(() => {
-    fetchResources()
-      .then((data) => setResources(data.resources))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+  if (loading) {
+    return <Text style={{ padding: 16 }}>Loading dashboard...</Text>;
+  }
 
-  useEffect(() => {
-    fetchResources()
-      .then((data) => {
-        setResources(data.resources);
-        setPolicy(data.policy);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="robot"
-          onPress={() => setAssistantOpen(true)}
-        />
-      ),
-    });
-
-  }, [navigation]);
-
-
-  if (loading) return <Text style={{ padding: 16 }}>Loading...</Text>;
-
-  const warnings = resources.filter(r => r.policy_status === 'warning').length;
-  const stopped = resources.filter(r => r.policy_status === 'auto-stopped').length;
+  const filteredResources = resources.filter((r) =>
+    r.id.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <>
-      {/* Main Dashboard */}
-      <ScrollView style={styles.container}>
-        {policy && <PolicyBanner policy={policy} />}
-        <SummaryHeader
-          total={resources.length}
-          warnings={resources.filter(r => r.policy_status === 'warning').length}
-          stopped={resources.filter(r => r.policy_status === 'auto-stopped').length}
-        />
+    <ScrollView style={styles.container}>
+      {/* 🔝 Welcome + Search */}
+      <View style={styles.header}>
+        <Text style={styles.welcome}>Welcome back 👋</Text>
+        <Text style={styles.subtitle}>
+          Monitor and control your compute resources
+        </Text>
 
-        {resources.map((r) => (
+        <TextInput
+          mode="outlined"
+          placeholder="Search VM by name or tag..."
+          value={search}
+          onChangeText={setSearch}
+          style={styles.search}
+        />
+      </View>
+
+      {/* 📊 Summary */}
+      <SummaryHeader
+        total={resources.length}
+        warnings={resources.filter(r => r.policy_status === 'warning').length}
+        stopped={resources.filter(r => r.policy_status === 'auto-stopped').length}
+      />
+
+      {/* 📜 Policy */}
+      {policy && <PolicyBanner policy={policy} />}
+
+      {/* 🖥️ Resources */}
+      {filteredResources.length === 0 ? (
+        <Text style={styles.empty}>No matching resources found.</Text>
+      ) : (
+        filteredResources.map((r) => (
           <ResourceCard
             key={r.id}
             r={r}
             onStopped={loadResources}
           />
-        ))}
-
-      </ScrollView>
-
-      {/* Chatbot + Floating Button */}
-    </>
+        ))
+      )}
+    </ScrollView>
   );
-
 }
 
 const styles = StyleSheet.create({
@@ -97,10 +101,25 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#f8fafc',
   },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24, // slightly lifted, avoids nav overlap
+  header: {
+    marginBottom: 16,
   },
-
+  welcome: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#475569',
+    marginBottom: 12,
+  },
+  search: {
+    backgroundColor: '#ffffff',
+  },
+  empty: {
+    marginTop: 24,
+    textAlign: 'center',
+    color: '#475569',
+  },
 });
