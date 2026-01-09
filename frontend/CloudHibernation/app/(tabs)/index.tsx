@@ -1,98 +1,97 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Text, Chip, Divider } from 'react-native-paper';
+import { fetchResources } from '../../services/api';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
-export default function HomeScreen() {
+type Resource = {
+  id: string;
+  type: string;
+  cpu: number;
+  idle_minutes: number;
+  state: string;
+  policy_status: 'healthy' | 'warning' | 'auto-stopped';
+};
+
+export default function DashboardScreen() {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchResources()
+      .then((data) => {
+        setResources(data.resources);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+
+  if (loading) {
+    return <Text style={{ padding: 16 }}>Loading...</Text>;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome Karthikeya, this app is running!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ScrollView style={styles.container}>
+      <Card style={styles.card}>
+        <Card.Title title="Compute Resources" />
+        <Card.Content>
+          {resources.map((r) => (
+            <View key={r.id}>
+              <View style={styles.row}>
+                <Text style={styles.name}>{r.id}</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+                <Chip
+                  style={
+                    r.policy_status === 'auto-stopped'
+                      ? styles.stopped
+                      : r.policy_status === 'warning'
+                        ? styles.warning
+                        : styles.healthy
+                  }
+                >
+                  {r.policy_status.toUpperCase()}
+                </Chip>
+              </View>
+
+              <Text>Type: {r.type}</Text>
+              <Text>CPU: {r.cpu}%</Text>
+              <Text>Idle Time: {r.idle_minutes} minutes</Text>
+              <Text>State: {r.state}</Text>
+
+              <Divider style={{ marginVertical: 8 }} />
+            </View>
+          ))}
+        </Card.Content>
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    padding: 12,
+    backgroundColor: '#f6f8fc',
+  },
+  card: {
+    marginBottom: 12,
+  },
+  row: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  name: {
+    flex: 1,
+    marginRight: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  healthy: {
+    backgroundColor: '#e6f4ea',
+  },
+  warning: {
+    backgroundColor: '#fef7e0',
+  },
+  stopped: {
+    backgroundColor: '#fce8e6',
   },
 });
