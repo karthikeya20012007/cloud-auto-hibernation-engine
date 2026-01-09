@@ -176,3 +176,4 @@ def approve_stop(resource_id: str):
             }
 
     raise HTTPException(status_code=404, detail="Resource not found")
+
