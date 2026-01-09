@@ -1,97 +1,82 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Text, Chip, Divider } from 'react-native-paper';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
+import CloudAssistant from '../../components/CloudAssistant';
+import { IconButton, Modal, Portal } from 'react-native-paper';
+import { useNavigation } from 'expo-router';
+import PolicyBanner from '../../components/PolicyBanner';
+
+
+
 import { fetchResources } from '../../services/api';
-
-
-type Resource = {
-  id: string;
-  type: string;
-  cpu: number;
-  idle_minutes: number;
-  state: string;
-  policy_status: 'healthy' | 'warning' | 'auto-stopped';
-};
+import SummaryHeader from '../../components/SummaryHeader';
+import ResourceCard from '../../components/ResourceCard';
 
 export default function DashboardScreen() {
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [resources, setResources] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [policy, setPolicy] = useState<any>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+
+
+  const navigation = useNavigation();
 
   useEffect(() => {
     fetchResources()
       .then((data) => {
         setResources(data.resources);
+        setPolicy(data.policy);
       })
-      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton
+          icon="robot"
+          onPress={() => setAssistantOpen(true)}
+        />
+      ),
+    });
+  }, [navigation]);
 
 
-  if (loading) {
-    return <Text style={{ padding: 16 }}>Loading...</Text>;
-  }
+  if (loading) return <Text style={{ padding: 16 }}>Loading...</Text>;
+
+  const warnings = resources.filter(r => r.policy_status === 'warning').length;
+  const stopped = resources.filter(r => r.policy_status === 'auto-stopped').length;
 
   return (
-    <ScrollView style={styles.container}>
-      <Card style={styles.card}>
-        <Card.Title title="Compute Resources" />
-        <Card.Content>
-          {resources.map((r) => (
-            <View key={r.id}>
-              <View style={styles.row}>
-                <Text style={styles.name}>{r.id}</Text>
+    <>
+      {/* Main Dashboard */}
+      <ScrollView style={styles.container}>
+        {policy && <PolicyBanner policy={policy} />}
+        <SummaryHeader
+          total={resources.length}
+          warnings={resources.filter(r => r.policy_status === 'warning').length}
+          stopped={resources.filter(r => r.policy_status === 'auto-stopped').length}
+        />
 
-                <Chip
-                  style={
-                    r.policy_status === 'auto-stopped'
-                      ? styles.stopped
-                      : r.policy_status === 'warning'
-                        ? styles.warning
-                        : styles.healthy
-                  }
-                >
-                  {r.policy_status.toUpperCase()}
-                </Chip>
-              </View>
+        {resources.map((r) => (
+          <ResourceCard key={r.id} r={r} />
+        ))}
+      </ScrollView>
 
-              <Text>Type: {r.type}</Text>
-              <Text>CPU: {r.cpu}%</Text>
-              <Text>Idle Time: {r.idle_minutes} minutes</Text>
-              <Text>State: {r.state}</Text>
-
-              <Divider style={{ marginVertical: 8 }} />
-            </View>
-          ))}
-        </Card.Content>
-      </Card>
-    </ScrollView>
+      {/* Chatbot + Floating Button */}
+    </>
   );
+
 }
 
 const styles = StyleSheet.create({
   container: {
     padding: 12,
-    backgroundColor: '#f6f8fc',
+    backgroundColor: '#f8fafc',
   },
-  card: {
-    marginBottom: 12,
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 24, // slightly lifted, avoids nav overlap
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  name: {
-    flex: 1,
-    marginRight: 8,
-  },
-  healthy: {
-    backgroundColor: '#e6f4ea',
-  },
-  warning: {
-    backgroundColor: '#fef7e0',
-  },
-  stopped: {
-    backgroundColor: '#fce8e6',
-  },
+
 });

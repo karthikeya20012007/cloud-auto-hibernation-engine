@@ -1,38 +1,57 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Text, Chip, Divider } from 'react-native-paper';
-import { fetchVMs } from '@/services/api';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Text, TextInput } from 'react-native-paper';
 
-type VM = {
+import { fetchResources } from '../../services/api';
+import ResourceCard from '../../components/ResourceCard';
+
+type Resource = {
   id: string;
-  state: string;
+  type: string;
   cpu: number;
+  idle_minutes: number;
+  state: string;
+  policy_status: 'healthy' | 'warning' | 'auto-stopped';
 };
 
 export default function ExploreScreen() {
-  const [vms, setVMs] = useState<VM[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchVMs().then(setVMs);
+    fetchResources()
+      .then((data) => setResources(data.resources))
+      .finally(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return <Text style={{ padding: 16 }}>Loading resources...</Text>;
+  }
+
+  const filteredResources = resources.filter((r) =>
+    r.id.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <ScrollView style={styles.container}>
-      <Card>
-        <Card.Title title="All VM Instances" />
-        <Card.Content>
-          {vms.map((vm) => (
-            <View key={vm.id}>
-              <View style={styles.row}>
-                <Text>{vm.id}</Text>
-                <Chip>{vm.state.toUpperCase()}</Chip>
-                <Text>{vm.cpu}% CPU</Text>
-              </View>
-              <Divider />
-            </View>
-          ))}
-        </Card.Content>
-      </Card>
+      {/* Search Bar */}
+      <TextInput
+        mode="outlined"
+        placeholder="Search VM or resource name..."
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
+
+      {/* Resource List */}
+      {filteredResources.length === 0 ? (
+        <Text style={styles.empty}>No matching resources found.</Text>
+      ) : (
+        filteredResources.map((r) => (
+          <ResourceCard key={r.id} r={r} />
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -40,12 +59,15 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: 12,
-    backgroundColor: '#f6f8fc',
+    backgroundColor: '#f8fafc',
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
+  search: {
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+  },
+  empty: {
+    marginTop: 24,
+    textAlign: 'center',
+    color: '#475569',
   },
 });
