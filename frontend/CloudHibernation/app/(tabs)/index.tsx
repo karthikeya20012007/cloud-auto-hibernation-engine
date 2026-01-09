@@ -1,98 +1,136 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  ScrollView,
+} from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const API_URL = "http://172.16.104.63:8000";
 
-export default function HomeScreen() {
+type ApiResponse = {
+  vm_name?: string;
+  machine_type?: string;
+  vcpus?: number;
+  memory_gb?: number;
+  region?: string;
+  hours_per_day?: number;
+  estimated_monthly_cost_inr?: number;
+  note?: string;
+  error?: string;
+};
+
+export default function App() {
+  const [requestBody, setRequestBody] = useState<string>(
+    `{
+  "vm_name": "vm-1",
+  "hours_per_day": 3
+}`
+  );
+
+  const [response, setResponse] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const executeRequest = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      setResponse("");
+
+      const parsedBody = JSON.parse(requestBody);
+
+      const res = await fetch(`${API_URL}/chatbot/estimate-cost`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(parsedBody),
+      });
+
+      const data: ApiResponse = await res.json();
+      setResponse(JSON.stringify(data, null, 2));
+    } catch (err: any) {
+      setResponse("❌ Error:\n" + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome Karthikeya, this app is running!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Swagger-style API Demo</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <Text style={styles.label}>POST /chatbot/estimate-cost</Text>
+
+      <Text style={styles.subLabel}>Request Body (JSON)</Text>
+      <TextInput
+        style={styles.codeBox}
+        multiline
+        value={requestBody}
+        onChangeText={setRequestBody}
+        textAlignVertical="top"
+        placeholder='{
+  "vm_name": "vm-1",
+  "hours_per_day": 3
+}'
+        placeholderTextColor="#888"
+      />
+
+      <Button
+        title={loading ? "Executing..." : "Execute"}
+        onPress={executeRequest}
+      />
+
+      <Text style={styles.subLabel}>Response</Text>
+      <TextInput
+        style={[styles.codeBox, styles.responseBox]}
+        multiline
+        editable={false}
+        value={response}
+        placeholder="Response will appear here"
+        placeholderTextColor="#888"
+      />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    padding: 20,
+    paddingBottom: 40,
+    backgroundColor: "#fff",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#000",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#000",
+  },
+  subLabel: {
+    marginTop: 15,
+    marginBottom: 5,
+    fontWeight: "600",
+    color: "#000",
+  },
+  codeBox: {
+    borderWidth: 1,
+    borderColor: "#333",
+    borderRadius: 6,
+    padding: 10,
+    minHeight: 140,
+    color: "#000",          // 🔑 makes typed text visible
+    backgroundColor: "#f9f9f9",
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  responseBox: {
+    minHeight: 180,
   },
 });
