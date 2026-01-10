@@ -3,20 +3,9 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Card, Text, Chip, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { approveStop } from '../services/api';
+import type { Resource } from '../types/resource';
 
-type Resource = {
-    id: string;
-    type: string;
-    cpu: number;
-    idle_minutes: number;
-    state: 'running' | 'stopped';
-    policy_status:
-    | 'healthy'
-    | 'warning'
-    | 'approval-required'
-    | 'auto-stopped'
-    | 'never-stop';
-};
+
 
 export default function ResourceCard({
     r,
@@ -61,18 +50,21 @@ export default function ResourceCard({
                     <Text style={styles.meta}>State: {r.state}</Text>
 
                     {/* STOP BUTTON */}
-                    {r.policy_status === 'approval-required' && (
-                        <Button
-                            mode="contained"
-                            onPress={handleStopNow}
-                            loading={stopping}
-                            disabled={stopping}
-                            buttonColor="#dc2626"
-                            style={styles.stopButton}
-                        >
-                            Approve & Stop VM
-                        </Button>
-                    )}
+                    {(r.policy_status === 'approval-required' ||
+                        r.policy_status === 'warning') &&
+                        r.state !== 'stopped' && (
+
+                            <Button
+                                mode="contained"
+                                onPress={handleStopNow}
+                                loading={stopping}
+                                disabled={stopping}
+                                buttonColor="#dc2626"
+                                style={styles.stopButton}
+                            >
+                                Approve & Stop VM
+                            </Button>
+                        )}
                 </Card.Content>
             </Card>
         </Pressable>

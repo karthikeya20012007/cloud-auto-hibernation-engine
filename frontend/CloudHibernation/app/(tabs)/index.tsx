@@ -1,32 +1,25 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Text, TextInput } from 'react-native-paper';
+import { Text, TextInput, Button } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+
+import { logout } from '../../services/auth';
 import { fetchResources } from '../../services/api';
+
 import SummaryHeader from '../../components/SummaryHeader';
 import PolicyBanner from '../../components/PolicyBanner';
 import ResourceCard from '../../components/ResourceCard';
-
-type Resource = {
-  id: string;
-  type: string;
-  cpu: number;
-  idle_minutes: number;
-  state: 'running' | 'stopped';
-  policy_status:
-    | 'healthy'
-    | 'warning'
-    | 'approval-required'
-    | 'auto-stopped'
-    | 'stopped';
-};
+import type { Resource } from '../../types/resource';
 
 export default function DashboardScreen() {
+  const router = useRouter();
+
   const [resources, setResources] = useState<Resource[]>([]);
   const [policy, setPolicy] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  function loadResources() {
+  useEffect(() => {
     setLoading(true);
     fetchResources()
       .then((data) => {
@@ -34,12 +27,14 @@ export default function DashboardScreen() {
         setPolicy(data.policy);
       })
       .finally(() => setLoading(false));
-  }
-
-  useEffect(() => {
-    loadResources();
   }, []);
 
+  function handleLogout() {
+    logout();
+    router.replace('/auth');
+  }
+
+  // ✅ AFTER all hooks
   if (loading) {
     return <Text style={{ padding: 16 }}>Loading dashboard...</Text>;
   }
@@ -49,10 +44,20 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* 🔝 Welcome + Search */}
+    <ScrollView
+      style={[
+        styles.container, // ✅ SAFE AREA
+      ]}
+    >
+      {/* 🔝 HEADER */}
       <View style={styles.header}>
-        <Text style={styles.welcome}>Welcome back Karthikeya 👋</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.welcome}>Welcome back Karthikeya 👋</Text>
+          <Button compact onPress={handleLogout}>
+            Logout
+          </Button>
+        </View>
+
         <Text style={styles.subtitle}>
           Monitor and control your compute resources
         </Text>
@@ -66,17 +71,17 @@ export default function DashboardScreen() {
         />
       </View>
 
-      {/* 📊 Summary */}
+      {/* 📊 SUMMARY */}
       <SummaryHeader
         total={resources.length}
         warnings={resources.filter(r => r.policy_status === 'warning').length}
         stopped={resources.filter(r => r.policy_status === 'auto-stopped').length}
       />
 
-      {/* 📜 Policy */}
+      {/* 📜 POLICY */}
       {policy && <PolicyBanner policy={policy} />}
 
-      {/* 🖥️ Resources */}
+      {/* 🖥️ RESOURCES */}
       {filteredResources.length === 0 ? (
         <Text style={styles.empty}>No matching resources found.</Text>
       ) : (
@@ -105,8 +110,14 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#f8fafc',
   },
+
   header: {
     marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   welcome: {
     fontSize: 22,
