@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Card, Text, Chip, Button } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 import { approveStop } from '../services/api';
 
 type Resource = {
@@ -25,6 +26,7 @@ export default function ResourceCard({
     onStopped: (id: string) => void;
 }) {
     const [stopping, setStopping] = useState(false);
+    const router = useRouter();
 
     async function handleStopNow() {
         if (stopping) return;
@@ -32,7 +34,7 @@ export default function ResourceCard({
         try {
             setStopping(true);
             await approveStop(r.id);
-            onStopped(r.id); // update parent state
+            onStopped(r.id);
         } catch (err: any) {
             alert(err?.message || 'Failed to stop VM');
         } finally {
@@ -41,38 +43,39 @@ export default function ResourceCard({
     }
 
     return (
-        <Card style={styles.card}>
-            <Card.Content>
-                {/* HEADER */}
-                <View style={styles.header}>
-                    <Text style={styles.name}>{r.id}</Text>
+        <Pressable onPress={() => router.push(`/vm/${r.id}`)}>
+            <Card style={styles.card}>
+                <Card.Content>
+                    {/* HEADER */}
+                    <View style={styles.header}>
+                        <Text style={styles.name}>{r.id}</Text>
+                        <Chip style={statusStyle(r.policy_status)}>
+                            {r.policy_status.toUpperCase()}
+                        </Chip>
+                    </View>
 
-                    <Chip style={statusStyle(r.policy_status)}>
-                        {r.policy_status.toUpperCase()}
-                    </Chip>
-                </View>
+                    {/* METRICS */}
+                    <Text style={styles.meta}>Type: {r.type}</Text>
+                    <Text style={styles.meta}>CPU Usage: {r.cpu}%</Text>
+                    <Text style={styles.meta}>Idle Time: {r.idle_minutes} min</Text>
+                    <Text style={styles.meta}>State: {r.state}</Text>
 
-                {/* METRICS */}
-                <Text style={styles.meta}>Type: {r.type}</Text>
-                <Text style={styles.meta}>CPU Usage: {r.cpu}%</Text>
-                <Text style={styles.meta}>Idle Time: {r.idle_minutes} min</Text>
-                <Text style={styles.meta}>State: {r.state}</Text>
-
-                {/* 🚨 STOP BUTTON — ONLY FOR APPROVAL REQUIRED */}
-                {r.policy_status === 'approval-required' && (
-                    <Button
-                        mode="contained"
-                        onPress={handleStopNow}
-                        loading={stopping}
-                        disabled={stopping}
-                        buttonColor="#dc2626"
-                        style={styles.stopButton}
-                    >
-                        Approve & Stop VM
-                    </Button>
-                )}
-            </Card.Content>
-        </Card>
+                    {/* STOP BUTTON */}
+                    {r.policy_status === 'approval-required' && (
+                        <Button
+                            mode="contained"
+                            onPress={handleStopNow}
+                            loading={stopping}
+                            disabled={stopping}
+                            buttonColor="#dc2626"
+                            style={styles.stopButton}
+                        >
+                            Approve & Stop VM
+                        </Button>
+                    )}
+                </Card.Content>
+            </Card>
+        </Pressable>
     );
 }
 
@@ -123,21 +126,9 @@ const styles = StyleSheet.create({
     stopButton: {
         marginTop: 10,
     },
-
-    /* CHIP COLORS */
-    healthy: {
-        backgroundColor: '#dcfce7',
-    },
-    warning: {
-        backgroundColor: '#fef3c7',
-    },
-    stopped: {
-        backgroundColor: '#fee2e2',
-    },
-    approval: {
-        backgroundColor: '#fde68a',
-    },
-    neverStop: {
-        backgroundColor: '#e0e7ff',
-    },
+    healthy: { backgroundColor: '#dcfce7' },
+    warning: { backgroundColor: '#fef3c7' },
+    stopped: { backgroundColor: '#fee2e2' },
+    approval: { backgroundColor: '#fde68a' },
+    neverStop: { backgroundColor: '#e0e7ff' },
 });

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
-import { Text, Card, SegmentedButtons } from 'react-native-paper';
+import { Text, Card, SegmentedButtons, TextInput } from 'react-native-paper';
 import { LineChart } from 'react-native-chart-kit';
 import { Dropdown } from 'react-native-paper-dropdown';
 
 const screenWidth = Dimensions.get('window').width;
 
 /* ---------------- TYPES ---------------- */
+type ResourceType = 'vm';
+
 type VmType =
     | 'e2-standard-2'
     | 'n2-standard-4'
@@ -15,86 +17,130 @@ type VmType =
 
 type Provider = 'gcp' | 'aws' | 'azure';
 
-/* ---------------- MOCK COST DATA ---------------- */
-const VM_COST_DATA: Record<VmType, Record<Provider, number[]>> = {
+/* ---------------- MOCK HOURLY COST DATA (₹ / hour) ---------------- */
+const HOURLY_COST: Record<VmType, Record<Provider, number>> = {
     'e2-standard-2': {
-        gcp: [70, 72, 75, 78, 82, 88, 92],
-        aws: [80, 84, 87, 92, 96, 102, 108],
-        azure: [76, 78, 82, 86, 90, 96, 101],
+        gcp: 3,
+        aws: 3.5,
+        azure: 3.2,
     },
     'n2-standard-4': {
-        gcp: [110, 115, 120, 125, 130, 135, 140],
-        aws: [130, 138, 145, 150, 155, 160, 165],
-        azure: [125, 130, 135, 140, 145, 150, 158],
+        gcp: 5,
+        aws: 6,
+        azure: 5.8,
     },
     'c2-standard-8': {
-        gcp: [250, 260, 270, 280, 290, 300, 310],
-        aws: [280, 295, 305, 320, 335, 345, 355],
-        azure: [270, 285, 295, 305, 320, 330, 342],
+        gcp: 10,
+        aws: 12,
+        azure: 11.5,
     },
     'g4dn.xlarge': {
-        gcp: [180, 185, 190, 195, 200, 205, 210],
-        aws: [220, 230, 240, 245, 250, 255, 260],
-        azure: [210, 220, 230, 235, 240, 242, 245],
+        gcp: 8,
+        aws: 10,
+        azure: 9.5,
     },
 };
 
-const VM_OPTIONS = Object.keys(VM_COST_DATA).map(vm => ({
+/* ---------------- DROPDOWN OPTIONS ---------------- */
+const RESOURCE_OPTIONS = [
+    { label: 'Virtual Machine', value: 'vm' },
+];
+
+const VM_OPTIONS = Object.keys(HOURLY_COST).map(vm => ({
     label: vm,
     value: vm,
 })) as { label: string; value: VmType }[];
 
 /* ---------------- SCREEN ---------------- */
 export default function EstimationScreen() {
+    const [resourceType, setResourceType] = useState<ResourceType>('vm');
     const [vmType, setVmType] = useState<VmType>('e2-standard-2');
-    const [provider, setProvider] = useState<Provider>('gcp');
+    const [hoursPerDay, setHoursPerDay] = useState<string>('3');
 
-    const prices = VM_COST_DATA[vmType][provider];
-    const monthlyCost = prices[prices.length - 1];
+    const daysPerMonth = 30;
+    const hours = Math.min(Math.max(Number(hoursPerDay) || 0, 0), 24);
+
+    const calculateMonthlyCost = (provider: Provider) => {
+        const hourly = HOURLY_COST[vmType][provider];
+        return Math.round(hourly * hours * daysPerMonth);
+    };
+
+    const gcpCost = calculateMonthlyCost('gcp');
+    const awsCost = calculateMonthlyCost('aws');
+    const azureCost = calculateMonthlyCost('azure');
 
     return (
         <ScrollView style={styles.container}>
             <Text style={styles.title}>Cost Estimation</Text>
             <Text style={styles.subtitle}>
-                Compare VM pricing across cloud providers
+                Estimate monthly cloud cost based on declared usage
             </Text>
 
-            {/* VM SELECTOR */}
+            {/* RESOURCE TYPE */}
             <Dropdown
-                label="Select VM Type"
+                label="Compute Resource Type"
                 mode="outlined"
-                options={VM_OPTIONS}
-                value={vmType}
-                onSelect={(value) => setVmType(value as VmType)}
+                options={RESOURCE_OPTIONS}
+                value={resourceType}
+                onSelect={(value) => setResourceType(value as ResourceType)}
             />
 
-            {/* PROVIDER SELECTOR */}
-            <SegmentedButtons
-                value={provider}
-                onValueChange={value => setProvider(value as Provider)}
-                buttons={[
-                    { value: 'gcp', label: 'GCP' },
-                    { value: 'aws', label: 'AWS' },
-                    { value: 'azure', label: 'Azure' },
-                ]}
-                style={{ marginVertical: 12 }}
+            {/* VM TYPE */}
+            <View style={{ marginTop: 15 }}>
+                <Dropdown
+                    label="Select VM Type"
+                    mode="outlined"
+                    options={VM_OPTIONS}
+                    value={vmType}
+                    onSelect={(value) => setVmType(value as VmType)}
+                />
+            </View>
+
+
+            {/* USAGE INPUT */}
+            <TextInput
+                label="Expected Usage (hours per day)"
+                mode="outlined"
+                keyboardType="numeric"
+                value={hoursPerDay}
+                onChangeText={setHoursPerDay}
+                style={{ marginTop: 12 }}
+                right={<TextInput.Affix text="/24 hrs" />}
             />
 
             {/* COST SUMMARY */}
             <Card style={styles.card}>
                 <Card.Content>
                     <Text style={styles.metricLabel}>Estimated Monthly Cost</Text>
-                    <Text style={styles.metricValue}>₹ {monthlyCost}</Text>
+
+                    <View style={styles.costRow}>
+                        <Text style={styles.provider}>GCP</Text>
+                        <Text style={styles.cost}>₹ {gcpCost}</Text>
+                    </View>
+
+                    <View style={styles.costRow}>
+                        <Text style={styles.provider}>AWS</Text>
+                        <Text style={styles.cost}>₹ {awsCost}</Text>
+                    </View>
+
+                    <View style={styles.costRow}>
+                        <Text style={styles.provider}>Azure</Text>
+                        <Text style={styles.cost}>₹ {azureCost}</Text>
+                    </View>
                 </Card.Content>
             </Card>
 
-            {/* COST TREND */}
+            {/* COST COMPARISON CHART */}
             <Card style={styles.card}>
                 <Card.Content>
                     <LineChart
                         data={{
-                            labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
-                            datasets: [{ data: prices }],
+                            labels: ['GCP', 'AWS', 'Azure'],
+                            datasets: [
+                                {
+                                    data: [gcpCost, awsCost, azureCost],
+                                },
+                            ],
                         }}
                         width={screenWidth - 48}
                         height={220}
@@ -133,18 +179,27 @@ const styles = StyleSheet.create({
         color: '#000000',
     },
     card: {
-        marginBottom: 16,
+        marginTop: 16,
         backgroundColor: '#ffffff',
         borderRadius: 12,
     },
     metricLabel: {
         fontSize: 14,
+        marginBottom: 8,
         color: '#000000',
     },
-    metricValue: {
-        fontSize: 26,
+    costRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 4,
+    },
+    provider: {
+        fontSize: 14,
+        color: '#000000',
+    },
+    cost: {
+        fontSize: 16,
         fontWeight: '700',
-        marginVertical: 6,
         color: '#000000',
     },
 });
