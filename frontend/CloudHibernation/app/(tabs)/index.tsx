@@ -5,20 +5,9 @@ import { fetchResources } from '../../services/api';
 import SummaryHeader from '../../components/SummaryHeader';
 import PolicyBanner from '../../components/PolicyBanner';
 import ResourceCard from '../../components/ResourceCard';
+import type { Resource } from '../../types/resource';
 
-type Resource = {
-  id: string;
-  type: string;
-  cpu: number;
-  idle_minutes: number;
-  state: 'running' | 'stopped';
-  policy_status:
-    | 'healthy'
-    | 'warning'
-    | 'approval-required'
-    | 'auto-stopped'
-    | 'stopped';
-};
+
 
 export default function DashboardScreen() {
   const [resources, setResources] = useState<Resource[]>([]);

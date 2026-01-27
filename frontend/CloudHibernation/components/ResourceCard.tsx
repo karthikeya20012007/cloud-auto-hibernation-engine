@@ -3,20 +3,10 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Card, Text, Chip, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { approveStop } from '../services/api';
+import type { Resource } from '../types/resource';
 
-type Resource = {
-    id: string;
-    type: string;
-    cpu: number;
-    idle_minutes: number;
-    state: 'running' | 'stopped';
-    policy_status:
-    | 'healthy'
-    | 'warning'
-    | 'approval-required'
-    | 'auto-stopped'
-    | 'never-stop';
-};
+
+
 
 export default function ResourceCard({
     r,
