@@ -13,4 +13,8 @@ export type Resource = {
     idle_minutes: number;
     state: 'running' | 'stopped';
     policy_status: PolicyStatus;
+
 };
+
+
+

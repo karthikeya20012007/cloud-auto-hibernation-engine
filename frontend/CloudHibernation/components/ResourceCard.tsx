@@ -7,6 +7,7 @@ import type { Resource } from '../types/resource';
 
 
 
+
 export default function ResourceCard({
     r,
     onStopped,

@@ -10,6 +10,11 @@ import SummaryHeader from '../../components/SummaryHeader';
 import PolicyBanner from '../../components/PolicyBanner';
 import ResourceCard from '../../components/ResourceCard';
 import type { Resource } from '../../types/resource';
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> branch2
 
 export default function DashboardScreen() {
   const router = useRouter();

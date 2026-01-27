@@ -35,7 +35,7 @@ class NeverStopTaggedPolicy(BasePolicy):
 class StopIdleVMPolicy(BasePolicy):
     """
     Conditional policy:
-    Stop VM if it is idle beyond a threshold.
+    Require human approval before stopping idle VMs.
     """
 
     def __init__(self, cpu_threshold: float = 5.0, idle_hours: int = 24):
@@ -49,6 +49,7 @@ class StopIdleVMPolicy(BasePolicy):
         if cpu < self.cpu_threshold and idle_time >= self.idle_hours:
             return PolicyResult(
                 allowed=True,
+                requires_approval=True,
                 reason=(
                     f"VM idle for {idle_time}h "
                     f"with CPU {cpu}% (below {self.cpu_threshold}%)"

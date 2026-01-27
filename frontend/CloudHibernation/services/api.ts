@@ -2,7 +2,9 @@
  * Stable backend URL for Expo Go on physical device
  * Change ONLY if your LAN IP changes
  */
-const BASE_URL = 'http://192.168.1.49:8000';
+
+const BASE_URL = 'http://192.168.1.11:8000';
+
 
 /**
  * Fetch all compute resources
