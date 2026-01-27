@@ -3,11 +3,18 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const FORCE_LOGIN = true; // 👈 ONLY ADDITION
+
 export default function Index() {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     useEffect(() => {
         const checkAuth = async () => {
+            if (FORCE_LOGIN) {
+                setIsAuthenticated(false);
+                return;
+            }
+
             const token = await AsyncStorage.getItem('auth_token');
             setIsAuthenticated(!!token);
         };
